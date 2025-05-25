@@ -10,7 +10,7 @@ import {
 
 import { theme } from "@/constants/theme";
 import { useSignupForm } from "@/hooks/useSignupForm";
-import { useVerification } from "@/hooks/useVerification";
+// import { useVerification } from "@/hooks/useVerification"; // Removed useVerification import
 import {
   AuthHeader,
   CustomButton,
@@ -24,13 +24,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import SuccessModal from "@/components/SuccessModal";
 import { useSignUp } from "@/hooks/useSignUp";
 import { SignupFormValues } from "@/interfaces/types";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import SuccessAlertModal from "@/components/SuccessAlertModal"; // Import SuccessAlertModal
 
 const SignupScreen: React.FC = () => {
   const [email, setEmail] = useState<string>(""); // Add email state
   const [alertMessage, setAlertMessage] = useState<string | null>(null); // State for alert message
   const [isError, setIsError] = useState<boolean>(false); // State to track if the alert is an error
+  const [isVerificationModalVisible, setIsVerificationModalVisible] = useState<boolean>(false); // Added state for VerificationModal visibility
 
   const {
     control,
@@ -41,25 +42,13 @@ const SignupScreen: React.FC = () => {
     setRememberMe,
   } = useSignupForm();
 
-  const {
-    isModalVisible,
-    setIsModalVisible,
-    isSuccessModalVisible,
-    setIsSuccessModalVisible,
-    code,
-    setCode,
-    timeLeft,
-    error,
-    inputRefs,
-    handleVerify,
-    handleResendOtp,
-  } = useVerification();
+  // Removed useVerification hook call and destructuring
 
   const { mutate: signUp, isPending } = useSignUp(
     (message) => {
       setAlertMessage(message); // Set success message
       setIsError(false); // Mark as success
-      setIsModalVisible(true); // Show verification modal
+      setIsVerificationModalVisible(true); // Show verification modal using the new state
     },
     (error) => {
       setAlertMessage(error); // Set error message
@@ -131,23 +120,17 @@ const SignupScreen: React.FC = () => {
       </View>
 
       <VerificationModal
-        isVisible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        code={code}
-        setCode={setCode}
-        timeLeft={timeLeft}
-        handleVerify={handleVerify}
-        handleResendOtp={handleResendOtp}
-        error={error}
-        inputRefs={inputRefs}
+        isVisible={isVerificationModalVisible} // Use new state for visibility
+        onClose={() => setIsVerificationModalVisible(false)} // Use new state setter for closing
         email={email}
-        onSuccess={() => setIsSuccessModalVisible(true)}
+        onSuccess={() => router.push('/(auth)/accountInformationScreen')}
+        // Removed props: code, setCode, timeLeft, handleVerify, handleResendOtp, error, inputRefs
       />
 
-      <SuccessModal
+      {/* <SuccessModal
         isVisible={isSuccessModalVisible}
         onClose={() => setIsSuccessModalVisible(false)}
-      />
+      /> */}
 
       {/* Display alert message in SuccessAlertModal */}
       <SuccessAlertModal
