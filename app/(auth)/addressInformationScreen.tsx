@@ -21,6 +21,11 @@ const AddressInformationScreen = () => {
   const { control, errors, handleSubmit, isButtonActive } =
     useAddressInfoForm();
   const [isModalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("You're All Set");
+  const [modalDescription, setModalDescription] = useState(
+    "Thank you for joining. You can now start exploring our amazing products."
+  );
+  const [isErrorModal, setIsErrorModal] = useState(false);
 
   const { formData } = useLocalSearchParams(); // Get formData from params
   const parsedFormData = JSON.parse(formData); // Parse formData
@@ -36,14 +41,31 @@ const AddressInformationScreen = () => {
   const handleModalClose = () => {
     setModalVisible(false);
   };
+
   const handleButtonPress = () => {
     setModalVisible(false);
-    router.replace("/(tabs)");
+    if (!isErrorModal) {
+      router.replace("/(tabs)");
+    }
   };
+
   const onSubmit = (data: { shippingAddress?: any; billingAddress?: any }) => {
+    if (!email) {
+      console.error(
+        "Email not found in auth store during completeSignup. This indicates a flow error."
+      );
+      setModalTitle("Critical Error");
+      setModalDescription(
+        "Your email was not found. Please try signing up again."
+      );
+      setIsErrorModal(true);
+      setModalVisible(true);
+      return;
+    }
+
     completeSignup(
       {
-        email: email || parsedFormData.email,
+        email: email, // Use email from authStore
         fullName: parsedFormData.fullName,
         dateOfBirth: parsedFormData.dateOfBirth,
         gender: parsedFormData.gender,
@@ -54,10 +76,21 @@ const AddressInformationScreen = () => {
       },
       {
         onSuccess: () => {
+          setModalTitle("You're All Set");
+          setModalDescription(
+            "Thank you for joining. You can now start exploring our amazing products."
+          );
+          setIsErrorModal(false);
           setModalVisible(true);
         },
-        onError: (error) => {
-          console.error("Signup failed:", error);
+        onError: (error: any) => {
+          setModalTitle("Signup Failed");
+          setModalDescription(
+            error.message || "An unexpected error occurred."
+          );
+          setIsErrorModal(true);
+          setModalVisible(true);
+          // console.error("Signup failed:", error);
         },
       }
     );
@@ -98,11 +131,12 @@ const AddressInformationScreen = () => {
       </View>
       <SuccessAlertModal
         visible={isModalVisible}
-        title="You're All Set"
-        description="Thank you for joining. You can now start exploring our amazing products."
-        buttonText="Start Shopping"
+        title={modalTitle}
+        description={modalDescription}
+        buttonText={isErrorModal ? "Try Again" : "Start Shopping"}
         onPressButton={handleButtonPress}
         onClose={handleModalClose}
+        isError={isErrorModal}
       />
     </ScrollView>
   );

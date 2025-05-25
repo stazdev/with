@@ -115,5 +115,10 @@ export const forgetPassword = async (email: string) => {
 
 export const verifyEmail = async (data: { email: string; code: string }) => {
   const response = await apiClient.post("Auth/VerifyEmail", data);
+
+  if (!response.data.status) {
+    throw new Error(response.data.message || "Email verification failed");
+  }
+
   return response.data;
 };
