@@ -1,0 +1,35 @@
+import * as React from "react";
+import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
+
+function CalendarActiveIcon(props) {
+  return (
+    <Svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      {...props}
+    >
+      <Path
+        d="M19.5 2.625h-1.875V2.25a1.125 1.125 0 10-2.25 0v.375h-6.75V2.25a1.125 1.125 0 00-2.25 0v.375H4.5A1.875 1.875 0 002.625 4.5v15A1.875 1.875 0 004.5 21.375h15a1.875 1.875 0 001.875-1.875v-15A1.875 1.875 0 0019.5 2.625zM6.375 4.875a1.125 1.125 0 002.25 0h6.75a1.125 1.125 0 102.25 0h1.5v2.25H4.875v-2.25h1.5zm-1.5 14.25v-9.75h14.25v9.75H4.875zm5.625-7.5v5.25a1.125 1.125 0 11-2.25 0v-3.439a1.125 1.125 0 01-.878-2.062l1.5-.75a1.125 1.125 0 011.628 1.001zm5.765 3.176l-.9.949h.385a1.125 1.125 0 110 2.25h-3a1.126 1.126 0 01-.817-1.898l2.64-2.79a.375.375 0 10-.648-.374 1.125 1.125 0 01-1.948-1.126 2.624 2.624 0 014.898 1.313 2.604 2.604 0 01-.529 1.58 1.005 1.005 0 01-.081.096z"
+        fill="url(#paint0_linear_3328_5957)"
+      />
+      <Defs>
+        <LinearGradient
+          id="paint0_linear_3328_5957"
+          x1={3.24756}
+          y1={-17.4978}
+          x2={24.4946}
+          y2={-15.323}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop stopColor="#FF2803" />
+          <Stop offset={1} stopColor="#FF7508" />
+        </LinearGradient>
+      </Defs>
+    </Svg>
+  );
+}
+
+export default CalendarActiveIcon;
