@@ -15,9 +15,12 @@ import {
   GestureResponderEvent,
   ActivityIndicator,
 } from "react-native";
+import { useState } from "react"; // Already present, but good to confirm
 
 import { theme } from "@/constants/theme";
 import { useRouter } from "expo-router";
+import { useAuthStore } from "@/store/authStore";
+import LoginPromptModal from "@/components/LoginPromptModal";
 import {
   CustomButton,
   CustomHeader,
@@ -36,14 +39,20 @@ const CARD_WIDTH = width / 2 - 20;
 const FavoritesScreen = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { authToken } = useAuthStore();
   const [isModalVisible, setModalVisible] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const { data: favoritesData, isLoading, refetch } = useFetchMyFavorites();
 
   const handleAddCategory = async () => {
+    if (!authToken) {
+      setShowLoginPrompt(true);
+      return;
+    }
     if (newCategory) {
       try {
         const response = await addFavoriteFolder(newCategory);
@@ -110,6 +119,17 @@ const FavoritesScreen = () => {
       </JaraText>
     </TouchableOpacity>
   );
+
+  if (!authToken) {
+    return (
+      <LoginPromptModal
+        isVisible={true}
+        onClose={() => router.replace("/(tabs)/homeScreen")} // Redirect to home if closed
+        title="View Your Favorites"
+        message="Please log in or sign up to see your saved favorites."
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -201,6 +221,13 @@ const FavoritesScreen = () => {
         buttonText="Done"
         onPressButton={() => setIsSuccessModalVisible(false)}
         onClose={() => setIsSuccessModalVisible(false)}
+      />
+
+      <LoginPromptModal
+        isVisible={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        title="Create a Favorite List"
+        message="Please log in or sign up to create new favorite lists."
       />
     </View>
   );

@@ -33,9 +33,12 @@ import {
   WalletSmallIcon,
 } from "@/assets/icons";
 import { JaraText } from "@/components";
-import { router } from "expo-router";
+import { router, useRouter } from "expo-router"; // Ensured useRouter is available if needed, though router object is used directly
 import { useFetchAccount } from "@/hooks/useFetchAccount";
 import useProfileStore from "@/store/profileStore";
+import { useAuthStore } from "@/store/authStore";
+import LoginPromptModal from "@/components/LoginPromptModal";
+import { useEffect } from "react"; // Ensure useEffect is imported
 
 const HEADER_EXPANDED_HEIGHT = 180;
 const HEADER_COLLAPSED_HEIGHT = 90;
@@ -43,7 +46,11 @@ const { width } = Dimensions.get("window");
 
 const ProfileScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
-  const { data, isLoading, error } = useFetchAccount();
+  const { authToken } = useAuthStore();
+  // const router = useRouter(); // router object from "expo-router" is used directly
+
+  // Conditionally fetch account data only if logged in
+  const { data, isLoading, error } = useFetchAccount(!!authToken); 
   const { profileData } = useProfileStore();
 
   useEffect(() => {
@@ -172,6 +179,19 @@ const ProfileScreen = () => {
       )
     );
 
+  // Guest User Check: This should come before isLoading and error checks for useFetchAccount
+  if (!authToken) {
+    return (
+      <LoginPromptModal
+        isVisible={true}
+        onClose={() => router.replace("/(tabs)/homeScreen")}
+        title="Access Your Profile"
+        message="Please log in or sign up to view and manage your profile details."
+      />
+    );
+  }
+
+  // Logged-in User: Proceed with loading, error, and content rendering
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -184,8 +204,19 @@ const ProfileScreen = () => {
     return (
       <View style={styles.errorContainer}>
         <JaraText size={16} weight="600" color={theme.colors.primary}>
-          Failed to load profile data
+          Failed to load profile data. Please try again later.
         </JaraText>
+      </View>
+    );
+  }
+
+  // Ensure profileData is available before rendering the main content
+  if (!profileData) {
+     // This can be a more sophisticated loading state or a simple null/message
+     // For now, showing a loading indicator as data might still be processing by Zustand
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -222,7 +253,7 @@ const ProfileScreen = () => {
             <Animated.Image
               source={{
                 uri:
-                  profileData?.profileImage ||
+                  profileData.profileImage || // Assuming profileData is guaranteed here
                   "https://via.placeholder.com/100",
               }}
               style={styles.profileImage}
@@ -238,9 +269,9 @@ const ProfileScreen = () => {
 
           <View style={styles.contentContainer}>
             <ProfileHeader
-              fullName={profileData?.fullName}
-              email={profileData?.email}
-              phoneNumber={profileData?.phoneNumber}
+              fullName={profileData.fullName}
+              email={profileData.email}
+              phoneNumber={profileData.phoneNumber}
             />
             <ProfileSection title="My Account">
               {renderOptions(accountOptions)}

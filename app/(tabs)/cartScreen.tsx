@@ -34,6 +34,9 @@ import { useFetchCart, useDeleteCart } from "@/hooks/useFetchOrder";
 import useOrderStore from "@/store/orderStore";
 import { useQueryClient } from "@tanstack/react-query";
 import SuccessAlertModal from "@/components/SuccessAlertModal";
+import { useAuthStore } from "@/store/authStore"; // Added
+import LoginPromptModal from "@/components/LoginPromptModal"; // Added
+// router is already imported: import { router } from "expo-router";
 
 const { width } = Dimensions.get("window");
 
@@ -61,6 +64,7 @@ interface Section {
 const CartScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { cartSessionId } = useOrderStore();
+  const { authToken } = useAuthStore(); // Added
   const { data, isLoading, error } = useFetchCart(cartSessionId);
   const queryClient = useQueryClient();
   const [isDeleteItemModal, setDeleteItemModal] = useState<boolean>(false);
@@ -337,34 +341,44 @@ const CartScreen: React.FC = () => {
         />
       ) : (
         <View style={styles.emptyCartContainer}>
-          <Image source={require("@/assets/images/PersonShopping.png")} />
-
-          <View style={styles.emptyCartMessage}>
-            <JaraText
-              size={20}
-              weight="700"
-              align="center"
-              style={{ textTransform: "capitalize", marginBottom: 16 }}
-            >
-              your cart is empty
-            </JaraText>
-            <JaraText
-              size={14}
-              weight="400"
-              align="center"
-              lineHeight={22.4}
-              color={theme.colors.black_21}
-            >
-              Discover exciting products in our various categories. Add them to
-              your cart and start shopping.
-            </JaraText>
-          </View>
-          <CustomButton
-            style={{ marginTop: 50 }}
-            type="linearGradient"
-            title="Explore Product Categories"
-            onPress={() => router.replace("/(tabs)/categoriesScreen")}
-          />
+          {!authToken ? (
+            <LoginPromptModal
+              isVisible={true}
+              onClose={() => router.replace("/(tabs)/homeScreen")}
+              title="Your Cart is Empty"
+              message="Log in or sign up to start adding items to your cart and enjoy a seamless shopping experience!"
+            />
+          ) : (
+            <>
+              <Image source={require("@/assets/images/PersonShopping.png")} />
+              <View style={styles.emptyCartMessage}>
+                <JaraText
+                  size={20}
+                  weight="700"
+                  align="center"
+                  style={{ textTransform: "capitalize", marginBottom: 16 }}
+                >
+                  your cart is empty
+                </JaraText>
+                <JaraText
+                  size={14}
+                  weight="400"
+                  align="center"
+                  lineHeight={22.4}
+                  color={theme.colors.black_21}
+                >
+                  Discover exciting products in our various categories. Add them to
+                  your cart and start shopping.
+                </JaraText>
+              </View>
+              <CustomButton
+                style={{ marginTop: 50 }}
+                type="linearGradient"
+                title="Explore Product Categories"
+                onPress={() => router.replace("/(tabs)/categoriesScreen")}
+              />
+            </>
+          )}
         </View>
       )}
 

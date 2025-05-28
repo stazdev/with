@@ -34,6 +34,10 @@ import ProductHorizontalList from "./ProductHorizontalList";
 import { useAddToCart } from "@/hooks/useFetchOrder";
 import useOrderStore from "@/store/orderStore";
 import { useFetchProductDetails } from "@/hooks/useFetchProduct";
+import { useAuthStore } from "@/store/authStore";
+import LoginPromptModal from "@/components/LoginPromptModal";
+import { addProductToFavorite, fetchFavoriteFolders } from "@/services/productService"; // Added
+// useState is already imported: import React, { useState } from "react";
 
 const ProductDetails: React.FC = () => {
   const { id } = useLocalSearchParams(); // Retrieve the parameters
@@ -41,16 +45,56 @@ const ProductDetails: React.FC = () => {
   const { data, isLoading, error } = useFetchProductDetails(productId);
   const insets = useSafeAreaInsets();
   const { cartSessionId, setCartSessionId } = useOrderStore();
+  const { authToken } = useAuthStore(); // Added
   const [quantity, setQuantity] = useState(1);
-  const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [isSuccessModalVisible, setSuccessModalVisible] = useState(false); // For AddToCart
+  const [successMessage, setSuccessMessage] = useState(""); // For AddToCart
+  const [showLoginPromptForCart, setShowLoginPromptForCart] = useState(false);
+  const [showLoginPromptForFavorite, setShowLoginPromptForFavorite] = useState(false); // Added
+  const [isFavoriteStatusModalVisible, setIsFavoriteStatusModalVisible] = useState(false); // Added
+  const [favoriteStatusTitle, setFavoriteStatusTitle] = useState(""); // Added
+  const [favoriteStatusMessage, setFavoriteStatusMessage] = useState(""); // Added
+
   const { mutate: addToCart } = useAddToCart((message: string) => {
-    setSuccessMessage(message);
+    setSuccessMessage(message); // This is for the cart success
     setSuccessModalVisible(true);
   });
 
   // State for the selected image
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+
+
+  const handleAddToFavorites = async () => {
+    if (!authToken) {
+      setShowLoginPromptForFavorite(true);
+      return;
+    }
+    if (!product) {
+      setFavoriteStatusTitle("Error");
+      setFavoriteStatusMessage("Product details not available.");
+      setIsFavoriteStatusModalVisible(true);
+      return;
+    }
+
+    try {
+      const foldersResponse = await fetchFavoriteFolders();
+      if (foldersResponse && foldersResponse.data && foldersResponse.data.length > 0) {
+        const firstFolderId = foldersResponse.data[0].id; // Assuming 'id' is the folderId property
+        await addProductToFavorite({ productId: product.id, folderId: firstFolderId });
+        setFavoriteStatusTitle("Success!");
+        setFavoriteStatusMessage("Product added to your favorites in folder: " + foldersResponse.data[0].name);
+      } else {
+        setFavoriteStatusTitle("No Favorite Folder");
+        setFavoriteStatusMessage("Please create a favorite folder first to add items. You can do this from your Favorites screen.");
+      }
+    } catch (error: any) {
+      console.error("Failed to add to favorites:", error);
+      setFavoriteStatusTitle("Error");
+      setFavoriteStatusMessage(error?.response?.data?.message || "Failed to add product to favorites. Please try again.");
+    }
+    setIsFavoriteStatusModalVisible(true);
+  };
+
 
   if (isLoading) {
     return (
@@ -100,9 +144,25 @@ const ProductDetails: React.FC = () => {
   );
 
   const handleAddToCart = () => {
-    if (!cartSessionId) {
-      setCartSessionId();
+    if (!authToken) {
+      setShowLoginPromptForCart(true);
+      return;
     }
+    // Ensure product is defined before proceeding
+    if (!product) {
+      console.error("Product data is not available.");
+      // Optionally, show an error message to the user
+      return;
+    }
+    if (!cartSessionId) {
+      setCartSessionId(); // This will generate a new cartSessionId if one doesn't exist
+    }
+    // The cartSessionId might be generated asynchronously if it was null,
+    // but useAddToCart hook or the backend should handle the case where it might still be initializing.
+    // For robustness, one might consider awaiting setCartSessionId if it returned a promise,
+    // or ensuring cartSessionId is available before calling addToCart.
+    // However, based on typical Zustand usage, setCartSessionId usually updates state synchronously.
+
     addToCart({
       cartSessionId, // Use the generated cart session ID
       productId: product.id,
@@ -124,7 +184,11 @@ const ProductDetails: React.FC = () => {
       <CustomHeader
         title={"Product Details"}
         leftComponent={<ChevronGreyLeftIcon />}
-        rightComponent={<HeartFilledIcon />}
+        rightComponent={
+          <TouchableOpacity onPress={handleAddToFavorites}>
+            <HeartFilledIcon />
+          </TouchableOpacity>
+        }
         onLeftPress={() => router.back()}
       />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -325,6 +389,26 @@ const ProductDetails: React.FC = () => {
         buttonText="OK"
         onPressButton={() => setSuccessModalVisible(false)}
         onClose={() => setSuccessModalVisible(false)}
+      />
+      <LoginPromptModal
+        isVisible={showLoginPromptForCart}
+        onClose={() => setShowLoginPromptForCart(false)}
+        title="Add to Cart"
+        message="Please log in or sign up to add items to your cart."
+      />
+      <LoginPromptModal
+        isVisible={showLoginPromptForFavorite}
+        onClose={() => setShowLoginPromptForFavorite(false)}
+        title="Add to Favorites"
+        message="Please log in or sign up to add items to your favorites."
+      />
+      <SuccessAlertModal
+        visible={isFavoriteStatusModalVisible}
+        title={favoriteStatusTitle}
+        description={favoriteStatusMessage}
+        buttonText="OK"
+        onPressButton={() => setIsFavoriteStatusModalVisible(false)}
+        onClose={() => setIsFavoriteStatusModalVisible(false)}
       />
     </View>
   );
