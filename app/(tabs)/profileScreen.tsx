@@ -37,8 +37,12 @@ import { router, useRouter } from "expo-router"; // Ensured useRouter is availab
 import { useFetchAccount } from "@/hooks/useFetchAccount";
 import useProfileStore from "@/store/profileStore";
 import { useAuthStore } from "@/store/authStore";
-import LoginPromptModal from "@/components/LoginPromptModal";
+// LoginPromptModal will be removed for the main screen guest view
+import GuestPlaceholderScreen from "@/components/GuestPlaceholderScreen"; // Added
 import { useEffect } from "react"; // Ensure useEffect is imported
+// UserIcon is already imported from @/assets/icons
+// theme is already imported from @/constants/theme
+// router is already imported from expo-router
 
 const HEADER_EXPANDED_HEIGHT = 180;
 const HEADER_COLLAPSED_HEIGHT = 90;
@@ -182,11 +186,14 @@ const ProfileScreen = () => {
   // Guest User Check: This should come before isLoading and error checks for useFetchAccount
   if (!authToken) {
     return (
-      <LoginPromptModal
-        isVisible={true}
-        onClose={() => router.replace("/(tabs)/homeScreen")}
-        title="Access Your Profile"
-        message="Please log in or sign up to view and manage your profile details."
+      <GuestPlaceholderScreen
+        icon={<UserIcon width={80} height={80} color={theme.colors.primary_light_hover} />} // Adjusted icon size
+        messageTitle="Access Your Profile"
+        messageBody="Log in or sign up to view your profile details, manage settings, and more."
+        buttonText="Login / Sign Up"
+        onButtonPress={() => router.push('/(auth)/signinScreen')}
+        // containerStyle={{ paddingTop: insets.top }} // insets might not be defined here, ensure it's available or use a fixed padding
+        containerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }} // Basic styling
       />
     );
   }

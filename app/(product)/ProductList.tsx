@@ -24,6 +24,10 @@ import { truncateText } from "@/utils/formatter";
 import { useAddToCart } from "@/hooks/useFetchOrder";
 import useOrderStore from "@/store/orderStore";
 import SuccessAlertModal from "@/components/SuccessAlertModal";
+import { useAuthStore } from "@/store/authStore"; // Added
+import LoginPromptModal from "@/components/LoginPromptModal"; // Added
+// useState is already imported: import React, { useState } from "react";
+
 
 const { width } = Dimensions.get("window");
 
@@ -41,8 +45,11 @@ const ProductList: React.FC<ProductListProps> = ({
   viewAll = true,
 }) => {
   const { cartSessionId, setCartSessionId } = useOrderStore();
+  const { authToken } = useAuthStore(); // Added
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false); // Added
+
   const { mutate: addToCart } = useAddToCart((message: string) => {
     setSuccessMessage(message);
     setSuccessModalVisible(true);
@@ -59,13 +66,17 @@ const ProductList: React.FC<ProductListProps> = ({
   };
 
   const handleAddToCart = (product: Product) => {
+    if (!authToken) {
+      setShowLoginPrompt(true);
+      return;
+    }
     if (!cartSessionId) {
       setCartSessionId();
     }
     addToCart({
       cartSessionId, // Use the generated cart session ID
       productId: product.id,
-      quantity: 1,
+      quantity: 1, // Default quantity to 1 when adding from list
       price: product.unitPrice,
     });
   };
@@ -174,6 +185,12 @@ const ProductList: React.FC<ProductListProps> = ({
         buttonText="OK"
         onPressButton={() => setSuccessModalVisible(false)}
         onClose={() => setSuccessModalVisible(false)}
+      />
+      <LoginPromptModal
+        isVisible={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        title="Login Required"
+        message="Please log in or sign up to add items to your cart."
       />
     </View>
   );

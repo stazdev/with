@@ -34,9 +34,12 @@ import { useFetchCart, useDeleteCart } from "@/hooks/useFetchOrder";
 import useOrderStore from "@/store/orderStore";
 import { useQueryClient } from "@tanstack/react-query";
 import SuccessAlertModal from "@/components/SuccessAlertModal";
-import { useAuthStore } from "@/store/authStore"; // Added
-import LoginPromptModal from "@/components/LoginPromptModal"; // Added
+import { useAuthStore } from "@/store/authStore";
+// LoginPromptModal will be removed for the empty cart guest view
+import GuestPlaceholderScreen from "@/components/GuestPlaceholderScreen"; // Added
+// CartStyleIcon is already imported from @/assets/icons
 // router is already imported: import { router } from "expo-router";
+// theme is already imported: import { theme } from "@/constants/theme";
 
 const { width } = Dimensions.get("window");
 
@@ -342,13 +345,16 @@ const CartScreen: React.FC = () => {
       ) : (
         <View style={styles.emptyCartContainer}>
           {!authToken ? (
-            <LoginPromptModal
-              isVisible={true}
-              onClose={() => router.replace("/(tabs)/homeScreen")}
-              title="Your Cart is Empty"
-              message="Log in or sign up to start adding items to your cart and enjoy a seamless shopping experience!"
+            <GuestPlaceholderScreen
+              icon={<CartStyleIcon width={60} height={60} color={theme.colors.primary} />}
+              messageTitle="Your Cart Awaits"
+              messageBody="Log in or sign up to add items to your cart and proceed to checkout."
+              buttonText="Login / Sign Up"
+              onButtonPress={() => router.push('/(auth)/signinScreen')}
+              containerStyle={{paddingTop: insets.top, backgroundColor: theme.colors.background }} // Ensure content is below status bar & consistent bg
             />
           ) : (
+            // Logged-in user with empty cart
             <>
               <Image source={require("@/assets/images/PersonShopping.png")} />
               <View style={styles.emptyCartMessage}>

@@ -21,13 +21,14 @@ import { theme } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import LoginPromptModal from "@/components/LoginPromptModal";
+import GuestPlaceholderScreen from "@/components/GuestPlaceholderScreen"; // Added
 import {
   CustomButton,
   CustomHeader,
   JaraText,
   SuccessAlertModal,
 } from "@/components";
-import { PlusFilledIcon, CloseIcon } from "@/assets/icons";
+import { PlusFilledIcon, CloseIcon, HeartFilledIcon } from "@/assets/icons"; // Added HeartFilledIcon
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { truncateText } from "@/utils/formatter";
 import { addFavoriteFolder } from "@/services/productService";
@@ -122,11 +123,13 @@ const FavoritesScreen = () => {
 
   if (!authToken) {
     return (
-      <LoginPromptModal
-        isVisible={true}
-        onClose={() => router.replace("/(tabs)/homeScreen")} // Redirect to home if closed
-        title="View Your Favorites"
-        message="Please log in or sign up to see your saved favorites."
+      <GuestPlaceholderScreen
+        icon={<HeartFilledIcon width={80} height={80} color={theme.colors.primary_light_hover} />} // Adjusted icon size and color
+        messageTitle="See Your Favorite Items"
+        messageBody="Log in or create an account to build your collection of favorite products and access them easily."
+        buttonText="Login / Sign Up"
+        onButtonPress={() => router.push('/(auth)/signinScreen')}
+        containerStyle={{paddingTop: insets.top }} // Ensure content is below status bar
       />
     );
   }
@@ -226,8 +229,8 @@ const FavoritesScreen = () => {
       <LoginPromptModal
         isVisible={showLoginPrompt}
         onClose={() => setShowLoginPrompt(false)}
-        title="Create a Favorite List"
-        message="Please log in or sign up to create new favorite lists."
+        title="Access Denied" // Updated title as per plan
+        message="Please log in to create favorite categories." // Updated message as per plan
       />
     </View>
   );
