@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react"; // Added useEffect, useRef, useCallback
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   FlatList,
   ActivityIndicator,
+  Dimensions, // Added Dimensions
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { theme } from "@/constants/theme";
@@ -34,6 +35,14 @@ import ProductHorizontalList from "./ProductHorizontalList";
 import { useAddToCart } from "@/hooks/useFetchOrder";
 import useOrderStore from "@/store/orderStore";
 import { useFetchProductDetails } from "@/hooks/useFetchProduct";
+import { useAuthStore } from "@/store/authStore";
+import LoginPromptModal from "@/components/LoginPromptModal";
+import { addProductToFavorite, fetchFavoriteFolders } from "@/services/productService"; // Added
+// useState is already imported: import React, { useState, useEffect, useRef, useCallback } from "react";
+
+const windowWidth = Dimensions.get('window').width;
+const mainImageHeight = 250; // Or your desired height
+const mainImageWidth = windowWidth * 0.8; // Example: 80% of screen width for the carousel item
 
 const ProductDetails: React.FC = () => {
   const { id } = useLocalSearchParams(); // Retrieve the parameters
@@ -41,16 +50,119 @@ const ProductDetails: React.FC = () => {
   const { data, isLoading, error } = useFetchProductDetails(productId);
   const insets = useSafeAreaInsets();
   const { cartSessionId, setCartSessionId } = useOrderStore();
+  const { authToken } = useAuthStore();
   const [quantity, setQuantity] = useState(1);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showLoginPromptForCart, setShowLoginPromptForCart] = useState(false);
+  const [showLoginPromptForFavorite, setShowLoginPromptForFavorite] = useState(false);
+  const [isFavoriteStatusModalVisible, setIsFavoriteStatusModalVisible] = useState(false);
+  const [favoriteStatusTitle, setFavoriteStatusTitle] = useState("");
+  const [favoriteStatusMessage, setFavoriteStatusMessage] = useState("");
+
+  const [currentMainImageIndex, setCurrentMainImageIndex] = useState(0); // Added for carousel
+  const mainImageCarouselRef = useRef<FlatList | null>(null); // Added for carousel
+
   const { mutate: addToCart } = useAddToCart((message: string) => {
     setSuccessMessage(message);
     setSuccessModalVisible(true);
   });
 
-  // State for the selected image
+  // State for the selected image (from thumbnail clicks)
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+
+
+  const handleAddToFavorites = async () => {
+    if (!authToken) {
+      setShowLoginPromptForFavorite(true);
+      return;
+    }
+    if (!product) {
+      setFavoriteStatusTitle("Error");
+      setFavoriteStatusMessage("Product details not available.");
+      setIsFavoriteStatusModalVisible(true);
+      return;
+    }
+
+    try {
+      const foldersResponse = await fetchFavoriteFolders();
+      if (foldersResponse && foldersResponse.data && foldersResponse.data.length > 0) {
+        const firstFolderId = foldersResponse.data[0].id; // Assuming 'id' is the folderId property
+        await addProductToFavorite({ productId: product.id, folderId: firstFolderId });
+        setFavoriteStatusTitle("Success!");
+        setFavoriteStatusMessage("Product added to your favorites in folder: " + foldersResponse.data[0].name);
+      } else {
+        setFavoriteStatusTitle("No Favorite Folder");
+        setFavoriteStatusMessage("Please create a favorite folder first to add items. You can do this from your Favorites screen.");
+      }
+    } catch (error: any) {
+      console.error("Failed to add to favorites:", error);
+      setFavoriteStatusTitle("Error");
+      setFavoriteStatusMessage(error?.response?.data?.message || "Failed to add product to favorites. Please try again.");
+    }
+    setIsFavoriteStatusModalVisible(true);
+  };
+
+  const product = data?.data;
+
+  const productGallery =
+    product?.productImages?.map((image, index) => ({
+      id: index.toString(), // Ensure unique ID for keyExtractor
+      image: image.imageUrl,
+    })) || [];
+
+  // Auto-scroll for main image carousel
+  useEffect(() => {
+    if (productGallery && productGallery.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentMainImageIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % productGallery.length;
+          mainImageCarouselRef.current?.scrollToIndex({
+            animated: true,
+            index: nextIndex,
+          });
+          return nextIndex;
+        });
+      }, 3000); // Scroll every 3 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [productGallery]);
+  
+  // Thumbnail click handler - might be adjusted later to sync with carousel index
+  const handleThumbnailPress = (imageId: string, index: number) => {
+    setSelectedImageId(imageId);
+    mainImageCarouselRef.current?.scrollToIndex({ animated: true, index });
+    setCurrentMainImageIndex(index); // Sync carousel index
+  };
+  
+  const renderGalleryItem = ({ item, index }: { item: { id: string; image: string }; index: number }) => (
+    <TouchableOpacity
+      onPress={() => handleThumbnailPress(item.id, index)}
+      style={[
+        styles.galleryImageWrapper,
+        // Highlight based on carousel index OR selectedImageId if you want to keep that logic
+        currentMainImageIndex === index && styles.selectedGalleryImage, 
+      ]}
+    >
+      <Image
+        source={{ uri: item.image }}
+        style={styles.galleryImage}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+  );
+  
+  const renderMainImageItem = ({ item }: { item: { id: string; image: string } }) => (
+    <View style={styles.mainImageSlide}>
+      <Image
+        source={{ uri: item.image }}
+        style={styles.productImage} // Ensure this style has width and height
+        resizeMode="contain"
+      />
+    </View>
+  );
+
 
   if (isLoading) {
     return (
@@ -71,38 +183,27 @@ const ProductDetails: React.FC = () => {
     return <Text>Error loading product details</Text>;
   }
 
-  const product = data?.data;
-
-  const productGallery =
-    product?.productImages?.map((image, index) => ({
-      id: index.toString(),
-      image: image.imageUrl,
-    })) || [];
-
-  const renderGalleryItem = ({
-    item,
-  }: {
-    item: { id: string; image: string };
-  }) => (
-    <TouchableOpacity
-      onPress={() => setSelectedImageId(item.id)}
-      style={[
-        styles.galleryImageWrapper,
-        selectedImageId === item.id && styles.selectedGalleryImage,
-      ]}
-    >
-      <Image
-        source={{ uri: item.image }}
-        style={styles.galleryImage}
-        resizeMode="contain"
-      />
-    </TouchableOpacity>
-  );
 
   const handleAddToCart = () => {
-    if (!cartSessionId) {
-      setCartSessionId();
+    if (!authToken) {
+      setShowLoginPromptForCart(true);
+      return;
     }
+    // Ensure product is defined before proceeding
+    if (!product) {
+      console.error("Product data is not available.");
+      // Optionally, show an error message to the user
+      return;
+    }
+    if (!cartSessionId) {
+      setCartSessionId(); // This will generate a new cartSessionId if one doesn't exist
+    }
+    // The cartSessionId might be generated asynchronously if it was null,
+    // but useAddToCart hook or the backend should handle the case where it might still be initializing.
+    // For robustness, one might consider awaiting setCartSessionId if it returned a promise,
+    // or ensuring cartSessionId is available before calling addToCart.
+    // However, based on typical Zustand usage, setCartSessionId usually updates state synchronously.
+
     addToCart({
       cartSessionId, // Use the generated cart session ID
       productId: product.id,
@@ -124,32 +225,52 @@ const ProductDetails: React.FC = () => {
       <CustomHeader
         title={"Product Details"}
         leftComponent={<ChevronGreyLeftIcon />}
-        rightComponent={<HeartFilledIcon />}
+        rightComponent={
+          <TouchableOpacity onPress={handleAddToFavorites}>
+            <HeartFilledIcon />
+          </TouchableOpacity>
+        }
         onLeftPress={() => router.back()}
       />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Product Image */}
+        {/* Main Product Image Carousel */}
         <View style={styles.productImageWrapper}>
-          <Image
-            source={{
-              uri: selectedImageId
-                ? productGallery.find((img) => img.id === selectedImageId)
-                    ?.image
-                : product?.productImages?.[0]?.imageUrl,
-            }}
-            style={styles.productImage}
-            resizeMode="contain"
-          />
+          {productGallery.length > 0 ? (
+            <FlatList
+              ref={mainImageCarouselRef}
+              data={productGallery}
+              renderItem={renderMainImageItem}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              style={styles.mainImageCarousel}
+              onMomentumScrollEnd={(event) => { // Update index on manual scroll
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / mainImageWidth);
+                if(newIndex !== currentMainImageIndex && newIndex >=0 && newIndex < productGallery.length) {
+                    setCurrentMainImageIndex(newIndex);
+                    setSelectedImageId(productGallery[newIndex].id); // Sync selectedId if needed
+                }
+              }}
+            />
+          ) : (
+            <View style={[styles.productImage, styles.placeholderImage]}>
+              <JaraText>No Image</JaraText>
+            </View>
+          )}
         </View>
 
-        {/* Product Gallery */}
-        <FlatList
-          data={productGallery}
-          horizontal
-          renderItem={renderGalleryItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.galleryContainer}
-        />
+        {/* Product Gallery Thumbnails */}
+        {productGallery.length > 1 && ( // Only show thumbnails if more than one image
+            <FlatList
+                data={productGallery}
+                horizontal
+                renderItem={renderGalleryItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.galleryContainer}
+                showsHorizontalScrollIndicator={false}
+            />
+        )}
 
         {/* Product Details */}
         <View style={styles.detailsWrapper}>
@@ -326,6 +447,26 @@ const ProductDetails: React.FC = () => {
         onPressButton={() => setSuccessModalVisible(false)}
         onClose={() => setSuccessModalVisible(false)}
       />
+      <LoginPromptModal
+        isVisible={showLoginPromptForCart}
+        onClose={() => setShowLoginPromptForCart(false)}
+        title="Add to Cart"
+        message="Please log in or sign up to add items to your cart."
+      />
+      <LoginPromptModal
+        isVisible={showLoginPromptForFavorite}
+        onClose={() => setShowLoginPromptForFavorite(false)}
+        title="Add to Favorites"
+        message="Please log in or sign up to add items to your favorites."
+      />
+      <SuccessAlertModal
+        visible={isFavoriteStatusModalVisible}
+        title={favoriteStatusTitle}
+        description={favoriteStatusMessage}
+        buttonText="OK"
+        onPressButton={() => setIsFavoriteStatusModalVisible(false)}
+        onClose={() => setIsFavoriteStatusModalVisible(false)}
+      />
     </View>
   );
 };
@@ -339,11 +480,28 @@ const styles = StyleSheet.create({
   },
   productImageWrapper: {
     alignItems: "center",
-    // marginVertical: 16,
+    marginVertical: 16, // Keep or adjust as needed
+    height: mainImageHeight, // Set a fixed height for the carousel wrapper
   },
-  productImage: {
-    width: 200,
-    height: 200,
+  mainImageCarousel: {
+    height: mainImageHeight,
+  },
+  mainImageSlide: {
+    width: mainImageWidth, // Each slide takes the defined width
+    height: mainImageHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productImage: { // Style for the image inside the carousel slide
+    width: '100%', // Take full width of the slide
+    height: '100%', // Take full height of the slide
+  },
+  placeholderImage: {
+    width: mainImageWidth,
+    height: mainImageHeight,
+    backgroundColor: theme.colors.neutral_light_grey,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   galleryContainer: {
     paddingHorizontal: 20,

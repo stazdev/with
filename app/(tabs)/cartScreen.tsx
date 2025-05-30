@@ -34,6 +34,12 @@ import { useFetchCart, useDeleteCart } from "@/hooks/useFetchOrder";
 import useOrderStore from "@/store/orderStore";
 import { useQueryClient } from "@tanstack/react-query";
 import SuccessAlertModal from "@/components/SuccessAlertModal";
+import { useAuthStore } from "@/store/authStore";
+// LoginPromptModal will be removed for the empty cart guest view
+import GuestPlaceholderScreen from "@/components/GuestPlaceholderScreen"; // Added
+// CartStyleIcon is already imported from @/assets/icons
+// router is already imported: import { router } from "expo-router";
+// theme is already imported: import { theme } from "@/constants/theme";
 
 const { width } = Dimensions.get("window");
 
@@ -60,8 +66,25 @@ interface Section {
 
 const CartScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { authToken } = useAuthStore(); // Auth token check first
+
+  // If guest, show placeholder and return early
+  if (!authToken) {
+    return (
+      <GuestPlaceholderScreen
+        icon={<CartStyleIcon width={60} height={60} color={theme.colors.primary} />}
+        messageTitle="Your Cart Awaits"
+        messageBody="Log in or sign up to add items to your cart and proceed to checkout."
+        buttonText="Login / Sign Up"
+        onButtonPress={() => router.push('/(auth)/signinScreen')}
+        containerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: insets.top, backgroundColor: theme.colors.background }}
+      />
+    );
+  }
+
+  // Hooks and state for logged-in users
   const { cartSessionId } = useOrderStore();
-  const { data, isLoading, error } = useFetchCart(cartSessionId);
+  const { data, isLoading, error } = useFetchCart(cartSessionId); // This hook will only run if authToken is present due to the early return above.
   const queryClient = useQueryClient();
   const [isDeleteItemModal, setDeleteItemModal] = useState<boolean>(false);
   const [selectedItem, setSelectedItem] = useState<CartItem | null>(null);
@@ -336,35 +359,38 @@ const CartScreen: React.FC = () => {
           contentContainerStyle={styles.listContent}
         />
       ) : (
+        // Logged-in user with empty cart
         <View style={styles.emptyCartContainer}>
-          <Image source={require("@/assets/images/PersonShopping.png")} />
-
-          <View style={styles.emptyCartMessage}>
-            <JaraText
-              size={20}
-              weight="700"
-              align="center"
-              style={{ textTransform: "capitalize", marginBottom: 16 }}
-            >
-              your cart is empty
-            </JaraText>
-            <JaraText
-              size={14}
-              weight="400"
-              align="center"
-              lineHeight={22.4}
-              color={theme.colors.black_21}
-            >
-              Discover exciting products in our various categories. Add them to
-              your cart and start shopping.
-            </JaraText>
-          </View>
-          <CustomButton
-            style={{ marginTop: 50 }}
-            type="linearGradient"
-            title="Explore Product Categories"
-            onPress={() => router.replace("/(tabs)/categoriesScreen")}
-          />
+          <>
+            <Image source={require("@/assets/images/PersonShopping.png")} />
+            <View style={styles.emptyCartMessage}>
+                <JaraText
+                  size={20}
+                  weight="700"
+                  align="center"
+                  style={{ textTransform: "capitalize", marginBottom: 16 }}
+                >
+                  your cart is empty
+                </JaraText>
+                <JaraText
+                  size={14}
+                  weight="400"
+                  align="center"
+                  lineHeight={22.4}
+                  color={theme.colors.black_21}
+                >
+                  Discover exciting products in our various categories. Add them to
+                  your cart and start shopping.
+                </JaraText>
+              </View>
+              <CustomButton
+                style={{ marginTop: 50 }}
+                type="linearGradient"
+                title="Explore Product Categories"
+                onPress={() => router.replace("/(tabs)/categoriesScreen")}
+              />
+            </>
+          )}
         </View>
       )}
 

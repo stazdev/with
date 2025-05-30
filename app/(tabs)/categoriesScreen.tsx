@@ -18,6 +18,13 @@ import {
   useFetchProductCategories,
   useFetchProductsByCategory,
 } from "@/hooks/useFetchProduct";
+import { useAuthStore } from "@/store/authStore"; // Added
+import LoginPromptModal from "@/components/LoginPromptModal"; // Added
+import SuccessAlertModal from "@/components/SuccessAlertModal"; // Added
+import { addProductToFavorite, fetchFavoriteFolders } from "@/services/productService"; // Added
+import { Product } from "@/interfaces/product"; // Added
+// useState is already imported: import React, { useState, useEffect } from "react";
+
 
 const banners = [
   { id: 1, title: "45% Off Groceries", backgroundColor: "#f39c12" },
@@ -33,6 +40,14 @@ const CategoriesScreen = () => {
     useState<string>("All Products");
   const [isFilterVisible, setFilterVisible] = useState(false);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+
+  // Auth and Modal States
+  const { authToken } = useAuthStore(); // Added
+  const [showLoginPromptForFavorite, setShowLoginPromptForFavorite] = useState(false); // Added
+  const [isFavoriteStatusModalVisible, setIsFavoriteStatusModalVisible] = useState(false); // Added
+  const [favoriteStatusTitle, setFavoriteStatusTitle] = useState(""); // Added
+  const [favoriteStatusMessage, setFavoriteStatusMessage] = useState(""); // Added
+
 
   // Fetch product categories
   const {
@@ -60,6 +75,41 @@ const CategoriesScreen = () => {
   // Toggle the modal visibility
   const handleFilterPress = () => {
     setFilterVisible(true);
+  };
+
+  const handleFavoritePress = async (product: Product) => {
+    if (!authToken) {
+      setShowLoginPromptForFavorite(true);
+      return;
+    }
+
+    if (!product || typeof product.id === 'undefined') {
+      setFavoriteStatusTitle("Error");
+      setFavoriteStatusMessage("Invalid product data.");
+      setIsFavoriteStatusModalVisible(true);
+      return;
+    }
+    
+    const productId = product.id;
+
+    try {
+      const foldersResponse = await fetchFavoriteFolders();
+      if (foldersResponse && foldersResponse.data && foldersResponse.data.length > 0) {
+        const firstFolderId = foldersResponse.data[0].id;
+        await addProductToFavorite({ productId, folderId: firstFolderId });
+        setFavoriteStatusTitle("Success!");
+        setFavoriteStatusMessage(`Product "${product.name}" added to favorites in folder: ${foldersResponse.data[0].name}.`);
+      } else {
+        setFavoriteStatusTitle("No Favorite Folder");
+        setFavoriteStatusMessage("Please create a favorite folder first to add items. You can do this from your Favorites screen.");
+      }
+    } catch (error: any) {
+      console.error("Failed to add to favorites:", error);
+      setFavoriteStatusTitle("Error");
+      const errorMessage = error?.response?.data?.message || "Failed to add product to favorites. Please try again.";
+      setFavoriteStatusMessage(errorMessage);
+    }
+    setIsFavoriteStatusModalVisible(true);
   };
 
   return (
@@ -106,12 +156,11 @@ const CategoriesScreen = () => {
         ) : (
           <ProductList
             products={productsData?.data || []}
-            onProductPress={(id: string) => {
-              console.log("Product Pressed ID:", id);
+            onProductPress={(id: number) => { // Changed id type to number based on ProductList expectation
+              // Navigate to product details or handle press
+              router.push({ pathname: "/(product)/productDetails", params: { id } });
             }}
-            onFavoritePress={(product) => {
-              console.log("Favorite Pressed:", product);
-            }}
+            onFavoritePress={handleFavoritePress} // Updated
           />
         )}
       </ScrollView>
@@ -126,6 +175,21 @@ const CategoriesScreen = () => {
       >
         <FilterContent />
       </JaraModal>
+
+      <LoginPromptModal
+        isVisible={showLoginPromptForFavorite}
+        onClose={() => setShowLoginPromptForFavorite(false)}
+        title="Add to Favorites"
+        message="Please log in or sign up to add items to your favorites."
+      />
+      <SuccessAlertModal
+        visible={isFavoriteStatusModalVisible}
+        title={favoriteStatusTitle}
+        description={favoriteStatusMessage}
+        buttonText="OK"
+        onPressButton={() => setIsFavoriteStatusModalVisible(false)}
+        onClose={() => setIsFavoriteStatusModalVisible(false)}
+      />
     </View>
   );
 };

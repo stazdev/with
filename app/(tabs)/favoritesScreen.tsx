@@ -15,16 +15,20 @@ import {
   GestureResponderEvent,
   ActivityIndicator,
 } from "react-native";
+import { useState } from "react"; // Already present, but good to confirm
 
 import { theme } from "@/constants/theme";
 import { useRouter } from "expo-router";
+import { useAuthStore } from "@/store/authStore";
+import LoginPromptModal from "@/components/LoginPromptModal";
+import GuestPlaceholderScreen from "@/components/GuestPlaceholderScreen"; // Added
 import {
   CustomButton,
   CustomHeader,
   JaraText,
   SuccessAlertModal,
 } from "@/components";
-import { PlusFilledIcon, CloseIcon } from "@/assets/icons";
+import { PlusFilledIcon, CloseIcon, HeartFilledIcon } from "@/assets/icons"; // Added HeartFilledIcon
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { truncateText } from "@/utils/formatter";
 import { addFavoriteFolder } from "@/services/productService";
@@ -36,14 +40,20 @@ const CARD_WIDTH = width / 2 - 20;
 const FavoritesScreen = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { authToken } = useAuthStore();
   const [isModalVisible, setModalVisible] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const { data: favoritesData, isLoading, refetch } = useFetchMyFavorites();
 
   const handleAddCategory = async () => {
+    if (!authToken) {
+      setShowLoginPrompt(true);
+      return;
+    }
     if (newCategory) {
       try {
         const response = await addFavoriteFolder(newCategory);
@@ -110,6 +120,19 @@ const FavoritesScreen = () => {
       </JaraText>
     </TouchableOpacity>
   );
+
+  if (!authToken) {
+    return (
+      <GuestPlaceholderScreen
+        icon={<HeartFilledIcon width={80} height={80} color={theme.colors.primary_light_hover} />} // Adjusted icon size and color
+        messageTitle="See Your Favorite Items"
+        messageBody="Log in or create an account to build your collection of favorite products and access them easily."
+        buttonText="Login / Sign Up"
+        onButtonPress={() => router.push('/(auth)/signinScreen')}
+        containerStyle={{paddingTop: insets.top }} // Ensure content is below status bar
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -201,6 +224,13 @@ const FavoritesScreen = () => {
         buttonText="Done"
         onPressButton={() => setIsSuccessModalVisible(false)}
         onClose={() => setIsSuccessModalVisible(false)}
+      />
+
+      <LoginPromptModal
+        isVisible={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        title="Access Denied" // Updated title as per plan
+        message="Please log in to create favorite categories." // Updated message as per plan
       />
     </View>
   );
